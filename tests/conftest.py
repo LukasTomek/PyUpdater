@@ -23,9 +23,9 @@
 # OR OTHER DEALINGS IN THE SOFTWARE.
 # ------------------------------------------------------------------------------
 import logging
+import multiprocessing
 import os
 import tempfile
-import threading
 
 try:
     from http.server import SimpleHTTPRequestHandler as RequestHandler
@@ -108,6 +108,13 @@ def pyu():
 
 @pytest.fixture
 def simpleserver():
+
+    class MyHandler(RequestHandler):
+
+        def handle_one_request(self):
+            log.debug("Simple Server request CWD: %s", os.getcwd())
+            RequestHandler.handle_one_request(self)
+
     class Server(object):
         def __init__(self):
             self.count = 0
@@ -115,6 +122,7 @@ def simpleserver():
             self._port = None
 
         def start(self, port=None):
+            log.debug("Simple Server serving: %s", os.getcwd())
             if port is None:
                 raise ValueError("Port cannot be None.")
 
@@ -125,9 +133,9 @@ def simpleserver():
                 return
             SocketServer.TCPServer.allow_reuse_address = True
 
-            httpd = SocketServer.TCPServer(("", port), RequestHandler)
+            httpd = SocketServer.TCPServer(("", port), MyHandler)
 
-            self._server = threading.Thread(target=httpd.serve_forever)
+            self._server = multiprocessing.Process(target=httpd.serve_forever)
             self._server.daemon = True
             self._server.start()
 
@@ -135,6 +143,8 @@ def simpleserver():
             self.count -= 1
             if self._server is not None and self.count == 0:
                 log.info("Stopping simple server: %s", self._port)
-                self._server.alive = False
+                # self._server.alive = False
+                self._server.terminate()
+                self._server.join()
                 self._server = None
     return Server()

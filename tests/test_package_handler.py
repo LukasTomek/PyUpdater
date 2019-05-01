@@ -92,18 +92,7 @@ class TestExecution(object):
 @pytest.mark.usefixtures('cleandir')
 class TestPackage(object):
 
-    def test_package_1(self, shared_datadir):
-        test_file = 'Acme-mac-4.1.tar.gz'
-        p1 = Package(shared_datadir / test_file)
-
-        assert p1.name == 'Acme'
-        assert p1.version == '4.1.0.2.0'
-        assert p1.filename == test_file
-        assert p1.platform == 'mac'
-        assert p1.channel == 'stable'
-        assert p1.info['status'] is True
-
-    def test_package_name_with_spaces(self, shared_datadir):
+    def test_package_name_with_spaces_nix(self, shared_datadir):
         test_file = 'with spaces-nix-0.0.1b1.zip'
         p1 = Package(shared_datadir / test_file)
 
@@ -114,11 +103,33 @@ class TestPackage(object):
         assert p1.channel == 'beta'
         assert p1.info['status'] is True
 
-    def test_package_alpha(self, shared_datadir):
+    def test_package_name_without_spaces_nix(self, shared_datadir):
+        test_file = 'without-spaces-nix-0.0.1b1.zip'
+        p1 = Package(shared_datadir / test_file)
+
+        assert p1.name == 'without-spaces'
+        assert p1.version == '0.0.1.1.1'
+        assert p1.filename == test_file
+        assert p1.platform == 'nix'
+        assert p1.channel == 'beta'
+        assert p1.info['status'] is True
+
+    def test_package_name_with_spaces(self, shared_datadir):
         test_file = 'with spaces-win-0.0.1a2.zip'
         p1 = Package(shared_datadir / test_file)
 
         assert p1.name == 'with spaces'
+        assert p1.version == '0.0.1.0.2'
+        assert p1.filename == test_file
+        assert p1.platform == 'win'
+        assert p1.channel == 'alpha'
+        assert p1.info['status'] is True
+
+    def test_package_name_without_spaces(self, shared_datadir):
+        test_file = 'without-spaces-win-0.0.1a2.zip'
+        p1 = Package(shared_datadir / test_file)
+
+        assert p1.name == 'without-spaces'
         assert p1.version == '0.0.1.0.2'
         assert p1.filename == test_file
         assert p1.platform == 'win'

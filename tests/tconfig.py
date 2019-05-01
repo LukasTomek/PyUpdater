@@ -41,7 +41,7 @@ class TConfig(object):
     # Online repository where you host your packages
     # and version file
     # REQUIRED
-    UPDATE_URLS = ['https://s3-us-west-1.amazonaws.com/pyu-tester/']
+    UPDATE_URLS = ['http://localhost:8888/']
     UPDATE_PATCHES = True
 
     # Upload Setup

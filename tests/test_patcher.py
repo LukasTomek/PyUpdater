@@ -56,7 +56,7 @@ update_data = {
     'current_version': '4.1.0.2.0',
     'latest_version': '4.4.0.2.0',
     'update_folder': None,
-
+    'update_urls'
     'platform': 'mac',
     'progress_hooks': [cb1, cb2]
     }
@@ -130,10 +130,7 @@ class TestExecution(object):
         data['update_urls'] = ['http://localhost:{}/'.format(port)]
 
         with ChDir(work_dir):
-            time.sleep(1)
             simpleserver.start(port)
-            webbrowser.open(data['update_urls'][0] + 'Acme-mac-59')
-            webbrowser.open(data['update_urls'][0])
 
             p = Patcher(**data)
             assert p.start() is True

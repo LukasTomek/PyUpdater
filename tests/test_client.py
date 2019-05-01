@@ -49,14 +49,7 @@ class TestSetup(object):
 
     def test_new_init(self, client):
         assert client.app_name == 'Acme'
-        assert client.update_urls[0] == ('https://s3-us-west-1.amazon'
-                                         'aws.com/pyu-tester/')
-
-    def test_no_cert(self, client):
-        client.verify = False
-        assert client.app_name == 'Acme'
-        assert client.update_urls[0] == ('https://s3-us-west-1.amazon'
-                                         'aws.com/pyu-tester/')
+        assert client.update_urls[0] == 'http://localhost:8888/'
 
     def test_bad_pub_key(self):
         t_config = TConfig()
@@ -72,20 +65,6 @@ class TestSetup(object):
         client.ready = False
         assert client.update_check(client.app_name, '0.0.2') is None
 
-    def test_callback(self):
-        def cb(status):
-            print(status)
-
-        def cb2(status):
-            raise IndexError
-
-        t_config = TConfig()
-        t_config.PUBLIC_KEY = '25RSdhJ+xCsxxTjY5jffilatipp29tnKp/D5BelSMJM'
-        t_config.DATA_DIR = os.getcwd()
-        client = Client(t_config, refresh=True, test=True, progress_hooks=[cb])
-        client.add_progress_hook(cb2)
-        assert client.update_check(client.app_name, '0.0.0') is None
-
     def test_manifest_filesystem(self):
         t_config = TConfig()
         t_config.DATA_DIR = os.getcwd()
@@ -97,27 +76,6 @@ class TestSetup(object):
         filesystem_data = json.loads(filesystem_data)
         del filesystem_data['signature']
         assert client.json_data == filesystem_data
-
-    def test_url_str_attr(self):
-        t_config = TConfig()
-        t_config.DATA_DIR = os.getcwd()
-        t_config.UPDATE_URLS = 'http://acme.com/update'
-        client = Client(t_config, test=True)
-        assert isinstance(client.update_urls, list)
-
-    def test_url_list_attr(self):
-        t_config = TConfig()
-        t_config.DATA_DIR = os.getcwd()
-        t_config.UPDATE_URLS = ['http://acme.com/update']
-        client = Client(t_config, test=True)
-        assert isinstance(client.update_urls, list)
-
-    def test_url_tuple_attr(self):
-        t_config = TConfig()
-        t_config.DATA_DIR = os.getcwd()
-        t_config.UPDATE_URLS = ('http://acme.com/update',)
-        client = Client(t_config, test=True)
-        assert isinstance(client.update_urls, list)
 
     def test_urls_str_attr(self):
         t_config = TConfig()
@@ -144,77 +102,133 @@ class TestSetup(object):
 @pytest.mark.usefixtures("cleandir", "client")
 class TestDownload(object):
 
-    def test_failed_refresh(self, client):
+    def test_failed_refresh(self):
         client = Client(None, refresh=True, test=True)
         client.data_dir = os.getcwd()
         assert client.ready is False
 
-    def test_http(self):
+    def test_http(self, shared_datadir, simpleserver):
+        port = 9030
+        work_dir = shared_datadir / 'update_data'
+
+        with ChDir(work_dir):
+            simpleserver.start(port)
+
         t_config = TConfig()
         t_config.DATA_DIR = os.getcwd()
+        t_config.UPDATE_URLS = ['http://localhost:8888/']
+
         client = Client(t_config, refresh=True, test=True)
         update = client.update_check(client.app_name, '0.0.1')
+
         assert update is not None
         assert update.app_name == 'Acme'
         assert update.download() is True
         assert update.is_downloaded() is True
 
     @pytest.mark.run(order=5)
-    def test_background_http(self):
+    def test_background_http(self, shared_datadir, simpleserver):
+        port = 9031
+        work_dir = shared_datadir / 'update_data'
+        with ChDir(work_dir):
+            simpleserver.start(port)
+
         t_config = TConfig()
         t_config.DATA_DIR = os.getcwd()
+        t_config.UPDATE_URLS = ['http://localhost:9031/']
+
         client = Client(t_config, refresh=True, test=True)
         update = client.update_check(client.app_name, '0.0.1')
+
         assert update is not None
         assert update.app_name == 'Acme'
+
         update.download(background=True)
         count = 0
+
         while count < 61:
             if update.is_downloaded() is True:
                 break
             time.sleep(1)
             count += 1
+
         assert update.is_downloaded() is True
 
     @pytest.mark.run(order=6)
-    def test_multiple_background_calls(self, client):
+    def test_multiple_background_calls(self, shared_datadir, simpleserver):
+        port = 9031
+        work_dir = shared_datadir / 'update_data'
+        with ChDir(work_dir):
+            simpleserver.start(port)
+
         t_config = TConfig()
         t_config.DATA_DIR = os.getcwd()
         t_config.VERIFY_SERVER_CERT = False
+        t_config.UPDATE_URLS = ['http://localhost:9031/']
+
         client = Client(t_config, refresh=True, test=True)
         update = client.update_check(client.app_name, '0.0.1')
+
         assert update is not None
         assert update.app_name == 'Acme'
+
         update.download(background=True)
         count = 0
+
         assert update.download(background=True) is None
         assert update.download() is None
+
         while count < 61:
             if update.is_downloaded() is True:
                 break
             time.sleep(1)
             count += 1
+
         assert update.is_downloaded() is True
 
 
 @pytest.mark.usefixtures("cleandir", "client")
 class TestExtract(object):
 
-    def test_extract(self, client):
+    def test_extract(self, shared_datadir, simpleserver):
+        port = 9033
+        work_dir = shared_datadir / 'update_data'
+        with ChDir(work_dir):
+            simpleserver.start(port)
+
+        t_config = TConfig()
+        t_config.DATA_DIR = os.getcwd()
+        t_config.UPDATE_URLS = ['http://localhost:9033/']
+
+        client = Client(t_config, refresh=True, test=True)
         update = client.update_check(client.app_name, '0.0.1')
+
         assert update is not None
         assert update.download() is True
         if get_system() != 'win':
             assert update.extract() is True
 
-    def test_extract_no_file(self, client):
+    def test_extract_no_file(self, shared_datadir, simpleserver):
+        port = 9034
+        work_dir = shared_datadir / 'update_data'
+        with ChDir(work_dir):
+            simpleserver.start(port)
+
+        t_config = TConfig()
+        t_config.DATA_DIR = os.getcwd()
+        t_config.UPDATE_URLS = ['http://localhost:9034/']
+
+        client = Client(t_config, refresh=True, test=True)
         update = client.update_check(client.app_name, '0.0.1')
+
         assert update is not None
         assert update.download() is True
+
         with ChDir(update.update_folder):
             files = os.listdir(os.getcwd())
             for f in files:
                 remove_any(f)
+
         if get_system() != 'win':
             assert update.extract() is False
 
@@ -256,7 +270,7 @@ class TestChannelStrict(object):
                                     data, strict=True) == '4.4.3.2.0'
 
 
-class TestChannelLessStrict(object):
+class TestChannelNotStrict(object):
 
     version_data = {
         "latest": {

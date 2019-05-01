@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
 # OR OTHER DEALINGS IN THE SOFTWARE.
 # ------------------------------------------------------------------------------
+import logging
 import os
 import tempfile
 import threading
@@ -44,6 +45,9 @@ from pyupdater.key_handler.keys import Keys
 from pyupdater.utils.config import ConfigManager
 from pyupdater.utils.storage import Storage
 from tconfig import TConfig
+
+
+log = logging.getLogger(__name__)
 
 
 @pytest.fixture
@@ -108,14 +112,19 @@ def simpleserver():
         def __init__(self):
             self.count = 0
             self._server = None
+            self._port = None
 
         def start(self, port=None):
             if port is None:
                 raise ValueError("Port cannot be None.")
+
+            log.info("Starting simple server: %s", port)
+            self._port = port
             self.count += 1
             if self._server is not None:
                 return
             SocketServer.TCPServer.allow_reuse_address = True
+
             httpd = SocketServer.TCPServer(("", port), RequestHandler)
 
             self._server = threading.Thread(target=httpd.serve_forever)
@@ -125,6 +134,7 @@ def simpleserver():
         def stop(self):
             self.count -= 1
             if self._server is not None and self.count == 0:
+                log.info("Stopping simple server: %s", self._port)
                 self._server.alive = False
                 self._server = None
     return Server()

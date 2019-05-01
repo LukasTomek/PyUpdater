@@ -25,10 +25,20 @@
 from __future__ import unicode_literals, print_function
 import json
 import os
+import time
+import webbrowser
 
+from dsdev_utils.paths import ChDir
 import pytest
 
 from pyupdater.client.patcher import Patcher
+
+
+def cb(status):
+    assert 'downloaded' in status.keys()
+    assert 'total' in status.keys()
+    assert 'status' in status.keys()
+    assert 'percent_complete' in status.keys()
 
 
 def cb1(status):
@@ -46,7 +56,7 @@ update_data = {
     'current_version': '4.1.0.2.0',
     'latest_version': '4.4.0.2.0',
     'update_folder': None,
-    'update_urls': ['https://pyu-tester.s3.amazonaws.com/'],
+
     'platform': 'mac',
     'progress_hooks': [cb1, cb2]
     }
@@ -60,7 +70,10 @@ class TestFails(object):
 
     @pytest.fixture
     def json_data(self, shared_datadir):
-        version_data_str = (shared_datadir / 'version.json').read_text()
+        work_dir = shared_datadir / 'update_data'
+        with ChDir(work_dir):
+            with open(os.path.join(str(work_dir), 'versions.json')) as f:
+                version_data_str = f.read()
         return json.loads(version_data_str)
 
     def test_no_base_binary(self, json_data):
@@ -73,7 +86,8 @@ class TestFails(object):
 
     def test_bad_hash_current_version(self, shared_datadir, json_data):
         data = update_data.copy()
-        data['update_folder'] = str(shared_datadir)
+        work_dir = shared_datadir / 'update_data'
+        data['update_folder'] = str(work_dir)
         data['json_data'] = json_data
         data['current_file_hash'] = 'Thisisabadhash'
         p = Patcher(**data)
@@ -82,7 +96,8 @@ class TestFails(object):
     @pytest.mark.run(order=8)
     def test_missing_version(self, shared_datadir, json_data):
         data = update_data.copy()
-        data['update_folder'] = str(shared_datadir)
+        work_dir = shared_datadir / 'update_data'
+        data['update_folder'] = str(work_dir)
         data['json_data'] = json_data
         data['latest_version'] = '0.0.4.2.0'
         p = Patcher(**data)
@@ -97,28 +112,30 @@ class TestExecution(object):
 
     @pytest.fixture
     def json_data(self, shared_datadir):
-        version_data_str = (shared_datadir / 'version.json').read_text()
+        work_dir = shared_datadir / 'update_data'
+        with ChDir(work_dir):
+            with open(os.path.join(str(work_dir), 'versions.json')) as f:
+                version_data_str = f.read()
         return json.loads(version_data_str)
 
     @pytest.mark.run(order=7)
-    def test_execution(self, shared_datadir, json_data):
-        data = update_data.copy()
-        data['update_folder'] = str(shared_datadir)
-        data['json_data'] = json_data
-        p = Patcher(**data)
-        assert p.start() is True
-
-    def test_execution_callback(self, shared_datadir, json_data):
-
-        def cb(status):
-            assert 'downloaded' in status.keys()
-            assert 'total' in status.keys()
-            assert 'status' in status.keys()
-            assert 'percent_complete' in status.keys()
+    def test_execution(self, shared_datadir, json_data, simpleserver):
+        port = 9020
 
         data = update_data.copy()
-        data['update_folder'] = str(shared_datadir)
+        work_dir = shared_datadir / 'update_data'
+        data['update_folder'] = str(work_dir)
         data['json_data'] = json_data
         data['progress_hooks'] = [cb]
-        p = Patcher(**data)
-        assert p.start() is True
+        data['update_urls'] = ['http://localhost:{}/'.format(port)]
+
+        with ChDir(work_dir):
+            time.sleep(1)
+            simpleserver.start(port)
+            webbrowser.open(data['update_urls'][0] + 'Acme-mac-59')
+            webbrowser.open(data['update_urls'][0])
+
+            p = Patcher(**data)
+            assert p.start() is True
+
+        simpleserver.stop()

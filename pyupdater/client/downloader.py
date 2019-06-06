@@ -32,6 +32,8 @@ import certifi
 import six
 import urllib3
 
+from shutil import copyfile
+
 from pyupdater.utils.compat import url_quote
 from pyupdater.utils.exceptions import FileDownloaderError
 log = logging.getLogger(__name__)
@@ -131,6 +133,12 @@ class FileDownloader(object):
 
         # Extra headers
         self.headers = kwargs.get('urllb3_headers')
+        
+        self.RepoWinNAS = False 
+        
+        if "check for string":
+            self.RepoWinNAS = True
+            return
 
         if self.verify is True:
             self.http_pool = self._get_http_pool()
@@ -216,13 +224,22 @@ class FileDownloader(object):
             return int(new_min)
         return int(rate)
 
+    def _copy_from_NAS(self):
+        if. exist 
+        copyfile(src, self.file_binary_path)
+        
+
     def _download_to_storage(self, check_hash=True):
         data = self._create_response()
 
         if data is None:
             return None
         hash_ = hashlib.sha256()
-
+        
+        if self.RepoWinNAS:
+            self.file_binary_type = 'file'
+            self._copy_from_NAS()
+            return True
         # Getting length of file to show progress
         self.content_length = FileDownloader._get_content_length(data)
         if self.content_length is None:
@@ -348,6 +365,8 @@ class FileDownloader(object):
         for url in self.urls:
             # Create url for resource
             file_url = url + url_quote(self.filename)
+            if self.RepoWinNAS:
+                
             log.debug('Url for request: %s', file_url)
             try:
                 data = self.http_pool.urlopen('GET', file_url,

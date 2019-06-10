@@ -135,10 +135,6 @@ class FileDownloader(object):
         self.headers = kwargs.get('urllb3_headers')
         
         self.RepoWinNAS = False 
-        
-        if "check for string":
-            self.RepoWinNAS = True
-            return
 
         if self.verify is True:
             self.http_pool = self._get_http_pool()
@@ -224,9 +220,9 @@ class FileDownloader(object):
             return int(new_min)
         return int(rate)
 
-    def _copy_from_NAS(self):
-        if. exist 
-        copyfile(src, self.file_binary_path)
+    def _copy_from_NAS(self, file_url):
+        if os.path.isfile(file_url):
+            copyfile(file_url, self.file_binary_path)
         
 
     def _download_to_storage(self, check_hash=True):
@@ -238,7 +234,7 @@ class FileDownloader(object):
         
         if self.RepoWinNAS:
             self.file_binary_type = 'file'
-            self._copy_from_NAS()
+            self._copy_from_NAS(data)
             return True
         # Getting length of file to show progress
         self.content_length = FileDownloader._get_content_length(data)
@@ -357,27 +353,16 @@ class FileDownloader(object):
                 log.debug('Exception in callback: %s', ph.__name__)
                 log.debug(err, exc_info=True)
 
-    # Creating response object to start download
-    # Attempting to do some error correction for aws s3 urls
-    def _create_response(self):
+    def _create_responseHTTP(self, file_url):
         data = None
-        max_download_retries = self.max_download_retries
-        for url in self.urls:
-            # Create url for resource
-            file_url = url + url_quote(self.filename)
-            if self.RepoWinNAS:
-                
-            log.debug('Url for request: %s', file_url)
             try:
                 data = self.http_pool.urlopen('GET', file_url,
                                               preload_content=False,
                                               retries=max_download_retries)
             except urllib3.exceptions.SSLError:
                 log.debug('SSL cert not verified')
-                continue
             except urllib3.exceptions.MaxRetryError:
                 log.debug('MaxRetryError')
-                continue
             except Exception as e:
                 # Catch whatever else comes up and log it
                 # to help fix other http related issues
@@ -387,7 +372,26 @@ class FileDownloader(object):
                     log.debug("Received a non-200 response %d", data.status)
                     data = None
                 else:
-                    break
+                data = None
+        return data
+    def _create_responseLocal(self, file_url):
+        self.RepoWinNAS = True
+        if os.path.isfile(file_url):
+            return file_url
+        
+    # Creating response object to start download
+    # Attempting to do some error correction for aws s3 urls
+    def _create_response(self):
+        data = None
+        max_download_retries = self.max_download_retries
+        for url in self.urls:
+            # Create url for resource
+            file_url = url + url_quote(self.filename)
+            log.debug('Url for request: %s', file_url)
+            if file_url.startswith(r"\\"):
+                data = self._create_responseLocal(file_url)
+            else:
+                data = self._create_responseHTTP(file_url)
 
         if data is not None:
             log.debug('Resource URL: %s', file_url)
